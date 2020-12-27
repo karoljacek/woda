@@ -1,0 +1,128 @@
+import numpy as np
+import mdtraj as md
+import time
+import matplotlib.pyplot as plt
+
+t = time.time()
+top = md.load_prmtop("/mnt/hard/Symulacje/WODA/python/test.parmtop")
+traj = md.load_netcdf("/mnt/hard/Symulacje/WODA/python/part_1.netcdf", top=top)
+print("czas ładowania trajektorii: " + str(time.time()-t) + "s\n\n")
+t = time.time()
+global r
+r = 15 #ilość peptydów
+
+def calculate_COM(top,traj):
+    t = time.time()
+
+    peptides = []
+
+
+    for i in range (r):
+        j=str(i*9)
+        k=str(int(j)+8)
+        pep = top.select("protein and resid " + j + " to " + k)
+        peptides.append(pep)
+
+    n = 0
+    j = []
+
+    for i in peptides:
+        n=n+1
+        print("calculating COM for peptide nr. " + str(n))
+        ds = traj.atom_slice(atom_indices = i)
+        j.append(md.compute_center_of_mass(ds))
+
+    print("\nczas liczenia COMów: " + str(time.time() - t) + "s\n\n")
+    return j
+
+def distances(p):
+    t = time.time()
+    dic = {}
+
+
+    for i in range(r):                                                  #liczymy dCOMów dla każdego peptydu
+        dic2 = {}
+        for j in range(r):                                              #względem każdego peptydu
+            mylist=[]
+            if i!=j:                                                    #warunek żeby nie liczylo dCOM względem tego samego peptydu
+                for k in range(traj.n_frames):                          # licze odległości COMów po każdej klatce
+                    Xowe = abs(p[i,k,0] - p[j,k,0])
+                    Yowe = abs(p[i,k,1] - p[j,k,1])
+                    Zowe = abs(p[i,k,2] - p[j,k,2])
+                    if Xowe > 0.5*traj.unitcell_lengths[k,0]:           #Uwzglednienie warunkow periodycznych ps.kilkakrotnie wydluzo to obliczenia
+                        Xowe = traj.unitcell_lengths[k,0] - Xowe
+                    if Yowe > 0.5*traj.unitcell_lengths[k,1]:
+                        Yowe = traj.unitcell_lengths[k,1] - Yowe
+                    if Zowe > 0.5*traj.unitcell_lengths[k, 2]:
+                        Zowe = traj.unitcell_lengths[k,2] - Zowe
+                    d = ((Xowe)**2 + (Yowe)**2 + (Zowe)**2)**0.5
+                    #print("d = ", round(d,2) , "   peptyd nr ", i , " , z peptydem nr ", j , " , klatka nr ", k)
+                    mylist.append(d)                                    # dCOMów dla każdej klatki dodaje do listy
+                dic2[j]=mylist                                          #po przeleceniu przez wszystkie klatki zapisujemy liste dCOMów jako element słownika
+        dic[i]=dic2
+
+    print("\nczas liczenia odległości: " + str(time.time() - t) + "s\n\n")
+    return dic
+
+def frames(time,traj):
+    num_frames=[]
+    for i in range(traj.n_frames):
+        i = i+1
+        num_frames.append(i*(time/traj.n_frames))
+    return num_frames
+
+def plot(x,y):
+    for i in range (r):
+        for j in range (r):
+            if i != j:
+                k=y[i][j]
+                # coef = np.polyfit(x, k, 1)                        #z krzywą regresji
+                # poly1d_fn = np.poly1d(coef)
+                # plt.plot(x, k, x, poly1d_fn(x), '--')
+                plt.plot(x, k, label="peptyd nr "+str(j+1))
+                plt.legend()
+        plt.title("peptyd nr " + str(i+1))
+        plt.xlabel("time[ps]")
+        plt.ylabel("odległość pomiędzy COM")
+        # mng = plt.get_current_fig_manager()                       #jak wyswietlic ekran na pelne okno?
+        # mng.window.state('zoomed')
+        plt.show()
+
+COMs=calculate_COM(top,traj) #zwraca liste
+
+a = COMs[0]    #trzeba napisać calculate_COM wektorowo, zeby output byl macierzą
+b = COMs[1]
+c = COMs[2]
+d = COMs[3]
+e = COMs[4]
+f = COMs[5]
+g = COMs[6]
+h = COMs[7]
+i = COMs[8]
+j = COMs[9]
+k = COMs[10]
+l = COMs[11]
+m = COMs[12]
+n = COMs[13]
+o = COMs[14]
+
+p = np.array((a,b,c,d,e,f,g,h,i,j,k,l,m,n,o))
+
+sym_time = 68836
+num_frame=frames(sym_time,traj)
+
+dic=distances(p)
+
+plot(num_frame,dic)
+
+
+# a = dic[0][0]
+# b = dic[0][1]
+# c = dic[0][2]
+# coef = np.polyfit(num_frames,b,1)
+# poly1d_fn = np.poly1d(coef)
+# plt.plot(num_frames, b, num_frames, poly1d_fn(num_frames), '--') # d=f(time)
+
+
+#plt.savefig("lol.png")
+
