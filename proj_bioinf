@@ -1,0 +1,48 @@
+import mdtraj as md
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+import time
+import glob
+from optparse import OptionParser
+import getopt
+
+start_time = time.time()
+
+parser = OptionParser()
+parser.add_option("-p", "--path", action="store", type="string", default='/home/', dest="path", help="full path to the folder containing .pdb files (def = /home)")
+parser.add_option("-c", "--cutoff", action="store", type="float", default='0.3', dest="r", help="cutoff of contacts water-protein[nm]  (def=0.3)")
+options, args = parser.parse_args()
+
+pdb_files = [f for f in glob.glob(options.path+"*.pdb")]
+print("loaded files:\n", pdb_files)
+
+aa_aprev = ["ALA","ARG","ASN","ASP","CYS","GLU","GLN","GLY","HIS","ILE","LEU","LYS","MET","PHE","PRO","SER","THR","TRP","TYR","VAL"]
+
+for pdb in pdb_files:
+    print("starting analyze of:" + pdb)
+
+
+    traj = md.load_pdb(pdb)
+    top = md.load(pdb).topology
+    top_prot_only = top.select("protein")
+    traj_prot_only = traj.atom_slice(top_prot_only).topology
+
+    for i in aa_aprev:
+        contacts_aa = md.compute_neighbors(traj, cutoff=options.r, query_indices=traj_prot_only.select("resname " + i), haystack_indices=top.select("water and name O"))
+        #print(contacts_aa)
+        print("number of water molecules in contact with " + i + " = {}".format(np.count_nonzero(contacts_aa)))
+        atom_types = []
+        for j in top.select("resname " + i):
+            atom_name = str(top.atom(j)).partition('-')[2]
+            if atom_name not in atom_types:
+                atom_types.append(atom_name)
+        for k in atom_types:
+            contacts_atom_types = md.compute_neighbors(traj, cutoff=options.r, query_indices=traj_prot_only.select("name " + k + " and protein"), haystack_indices=contacts_aa[0])
+            print("number of water molecules in contact with " + k + " in " + i + " = {}".format(np.count_nonzero(contacts_atom_types)))
+        print(atom_types)
+
+
+
+
+print ("time elapsed: {:.2f}s".format(time.time() - start_time))
